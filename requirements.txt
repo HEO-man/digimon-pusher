@@ -1,3 +1,4 @@
 Flask
 github3.py
 PyGithub
+flask-cors
