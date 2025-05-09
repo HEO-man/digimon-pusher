@@ -14,45 +14,47 @@ def push_to_github():
         filename = data.get("filename")
         content_b64 = data.get("content_base64")
         repo_name = data.get("repo")
-        folder = data.get("folder")  # ✅ folder 값 받기
+        folder = data.get("folder", "")  # optional
         token = os.environ.get("GITHUB_TOKEN")
 
         if not all([filename, content_b64, repo_name, token]):
-            return jsonify({"error": "Missing data"}), 400
+            return jsonify({"error": "Missing required fields"}), 400
 
-        # path 구성
+        # 저장 경로 지정
         if folder:
             path = f"data/digi_illustration/{folder}/{filename}"
         else:
-            path = data.get("path", filename)
+            path = filename
 
-        # 디코딩
-        decoded_content = base64.b64decode(content_b64).decode("utf-8")
+        # content 처리: 텍스트 or 바이너리
+        decoded_bytes = base64.b64decode(content_b64)
+        if filename.endswith(".json") or filename.endswith(".txt"):
+            content_to_commit = decoded_bytes.decode("utf-8")
+        else:
+            # 바이너리 파일은 base64 문자열로 저장
+            content_to_commit = base64.b64encode(decoded_bytes).decode("utf-8")
 
-        # GitHub 객체
         g = Github(token)
         repo = g.get_user().get_repo(repo_name)
 
         try:
-            # 기존 파일 여부 확인
             existing = repo.get_contents(path)
             repo.update_file(
                 path=existing.path,
                 message=f"Update {filename}",
-                content=decoded_content,
+                content=content_to_commit,
                 sha=existing.sha,
                 branch="main"
             )
-            print(f"✅ {filename} 업데이트 완료")
-        except Exception as e:
-            # 파일이 없으면 새로 생성
+            print(f"✅ {path} 업데이트 완료")
+        except Exception:
             repo.create_file(
                 path=path,
                 message=f"Add {filename}",
-                content=decoded_content,
+                content=content_to_commit,
                 branch="main"
             )
-            print(f"📁 {filename} 새로 생성")
+            print(f"📁 {path} 새로 생성")
 
         return jsonify({"status": "success"})
 
