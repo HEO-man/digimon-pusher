@@ -14,11 +14,17 @@ def push_to_github():
         filename = data.get("filename")
         content_b64 = data.get("content_base64")
         repo_name = data.get("repo")
-        path = data.get("path", filename)
+        folder = data.get("folder")  # ✅ folder 값 받기
         token = os.environ.get("GITHUB_TOKEN")
 
         if not all([filename, content_b64, repo_name, token]):
             return jsonify({"error": "Missing data"}), 400
+
+        # path 구성
+        if folder:
+            path = f"data/digi_illustration/{folder}/{filename}"
+        else:
+            path = data.get("path", filename)
 
         # 디코딩
         decoded_content = base64.b64decode(content_b64).decode("utf-8")
@@ -53,7 +59,6 @@ def push_to_github():
     except Exception as e:
         print("🔥 서버 오류:", str(e))
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
