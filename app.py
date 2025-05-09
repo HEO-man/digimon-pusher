@@ -2,10 +2,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 from github import Github
-from base64 import b64decode
+import base64
 
 app = Flask(__name__)
-CORS(app)  # CORS 허용
+CORS(app)
 
 @app.route("/push", methods=["POST"])
 def push_to_github():
@@ -18,41 +18,42 @@ def push_to_github():
         token = os.environ.get("GITHUB_TOKEN")
 
         if not all([filename, content_b64, repo_name, token]):
-            return jsonify({"error": "Missing required fields"}), 400
+            return jsonify({"error": "Missing data"}), 400
 
-        # GitHub 인증
+        # 디코딩
+        decoded_content = base64.b64decode(content_b64).decode("utf-8")
+
+        # GitHub 객체
         g = Github(token)
-        user = g.get_user()
-        repo = user.get_repo(repo_name)
-
-        # Base64 디코드 → 텍스트로 복원
-        decoded_content = b64decode(content_b64).decode()
+        repo = g.get_user().get_repo(repo_name)
 
         try:
-            # 기존 파일 업데이트
-            contents = repo.get_contents(path)
+            # 기존 파일 여부 확인
+            existing = repo.get_contents(path)
             repo.update_file(
-                path=contents.path,
+                path=existing.path,
                 message=f"Update {filename}",
                 content=decoded_content,
-                sha=contents.sha,
+                sha=existing.sha,
                 branch="main"
             )
-        except Exception:
-            # 신규 파일 생성
+            print(f"✅ {filename} 업데이트 완료")
+        except Exception as e:
+            # 파일이 없으면 새로 생성
             repo.create_file(
                 path=path,
                 message=f"Add {filename}",
                 content=decoded_content,
                 branch="main"
             )
+            print(f"📁 {filename} 새로 생성")
 
         return jsonify({"status": "success"})
 
     except Exception as e:
+        print("🔥 서버 오류:", str(e))
         return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
