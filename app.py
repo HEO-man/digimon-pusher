@@ -15,56 +15,52 @@ CORS(app)
 def push_to_github():
     try:
         data = request.json
+        logging.info(f"📨 요청 JSON 키: {list(data.keys())}")
 
-        logging.info(f"요청 JSON 키 목록: {list(data.keys())}")
-        
         filename = data.get("filename")
         content_b64 = data.get("content_base64")
         repo_name = data.get("repo")
         folder = data.get("folder", "")  # optional
+        path = data.get("path", "")      # 우선 path 사용
         token = os.environ.get("GITHUB_TOKEN")
-        logging.info("디지몬_01 받은 폴더 :: "+data.get("folder", ""))
-        logging.info("디지몬_02 받은 폴더 :: "+data.get("folderName", ""))
-        
+
         if not all([filename, content_b64, repo_name, token]):
             logging.error("❌ 필수 필드 누락됨")
             return jsonify({"error": "Missing required fields"}), 400
 
-        # 저장 경로 지정
-        if folder:
-            path = f"data/digi_illustration/{folder}/{filename}"
-        else:
-            path = filename
+        # 경로 설정 (보안 필터 포함)
+        if not path:
+            path = f"data/digi_illustration/{folder}/{filename}" if folder else filename
 
-        
-        logging.info(f"📂 전달받은 folder: ${folder}")
+        if ".." in path or path.startswith("/"):
+            logging.warning(f"🚫 잘못된 경로 감지됨: {path}")
+            return jsonify({"error": "Invalid path"}), 400
 
-        logging.info(f"디지몬 폴더명: ${folder}")
-        logging.info(f"📄 업로드 파일명: {filename}")
-        logging.info(f"📁 저장 경로: {path}")
-        logging.info(f"📦 저장할 레포: {repo_name}")
+        logging.info(f"📂 저장 경로: {path}")
+        logging.info(f"📄 파일명: {filename}")
+        logging.info(f"📦 레포지토리: {repo_name}")
 
-        # content 처리: 텍스트 or 바이너리
+        # 내용 디코딩
         decoded_bytes = base64.b64decode(content_b64)
-        if filename.endswith(".json") or filename.endswith(".txt"):
+        if filename.endswith((".json", ".txt")):
             content_to_commit = decoded_bytes.decode("utf-8")
         else:
-            # 바이너리 파일은 base64 문자열로 저장
             content_to_commit = base64.b64encode(decoded_bytes).decode("utf-8")
 
+        # GitHub 업로드
         g = Github(token)
         repo = g.get_user().get_repo(repo_name)
 
         try:
             existing = repo.get_contents(path)
             repo.update_file(
-                path=existing.path,
+                path=path,
                 message=f"Update {filename}",
                 content=content_to_commit,
                 sha=existing.sha,
                 branch="main"
             )
-            logging.info(f"✅ {path} 업데이트 완료")
+            logging.info(f"✅ 업데이트 완료: {path}")
         except Exception:
             repo.create_file(
                 path=path,
@@ -72,7 +68,7 @@ def push_to_github():
                 content=content_to_commit,
                 branch="main"
             )
-            logging.info(f"📁 {path} 새로 생성")
+            logging.info(f"🆕 새 파일 생성: {path}")
 
         return jsonify({"status": "success"})
 
