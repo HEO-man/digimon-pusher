@@ -3,6 +3,10 @@ from flask_cors import CORS
 import os
 from github import Github
 import base64
+import logging
+
+# 로그 설정
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +22,7 @@ def push_to_github():
         token = os.environ.get("GITHUB_TOKEN")
 
         if not all([filename, content_b64, repo_name, token]):
+            logging.error("❌ 필수 필드 누락됨")
             return jsonify({"error": "Missing required fields"}), 400
 
         # 저장 경로 지정
@@ -25,6 +30,10 @@ def push_to_github():
             path = f"data/digi_illustration/{folder}/{filename}"
         else:
             path = filename
+
+        logging.info(f"📄 업로드 파일명: {filename}")
+        logging.info(f"📁 저장 경로: {path}")
+        logging.info(f"📦 저장할 레포: {repo_name}")
 
         # content 처리: 텍스트 or 바이너리
         decoded_bytes = base64.b64decode(content_b64)
@@ -46,7 +55,7 @@ def push_to_github():
                 sha=existing.sha,
                 branch="main"
             )
-            print(f"✅ {path} 업데이트 완료")
+            logging.info(f"✅ {path} 업데이트 완료")
         except Exception:
             repo.create_file(
                 path=path,
@@ -54,13 +63,13 @@ def push_to_github():
                 content=content_to_commit,
                 branch="main"
             )
-            print(f"📁 {path} 새로 생성")
+            logging.info(f"📁 {path} 새로 생성")
 
         return jsonify({"status": "success"})
 
     except Exception as e:
-        print("🔥 서버 오류:", str(e))
+        logging.exception("🔥 서버 오류 발생")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
