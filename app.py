@@ -1,8 +1,7 @@
-
 from flask import Flask, request, jsonify
 import os
 from github import Github
-from base64 import b64decode
+import base64
 
 app = Flask(__name__)
 
@@ -10,21 +9,34 @@ app = Flask(__name__)
 def push_to_github():
     data = request.json
     filename = data.get("filename")
-    content = b64decode(data.get("content_base64"))
+    content_b64 = data.get("content_base64")  # base64 인코딩된 문자열
     repo_name = data.get("repo")
     path = data.get("path", filename)
     token = os.environ.get("GITHUB_TOKEN")
 
-    if not all([filename, content, repo_name, token]):
+    if not all([filename, content_b64, repo_name, token]):
         return jsonify({"error": "Missing data"}), 400
 
     g = Github(token)
-    repo = g.get_user().get_repo(repo_name)
+    user = g.get_user()
+    repo = user.get_repo(repo_name)
+
     try:
         contents = repo.get_contents(path)
-        repo.update_file(contents.path, f"Update {filename}", content.decode(), contents.sha)
-    except:
-        repo.create_file(path, f"Add {filename}", content.decode())
+        repo.update_file(
+            contents.path,
+            f"Update {filename}",
+            content_b64,
+            contents.sha,
+            branch="main"
+        )
+    except Exception:
+        repo.create_file(
+            path,
+            f"Add {filename}",
+            content_b64,
+            branch="main"
+        )
 
     return jsonify({"status": "success"})
 
