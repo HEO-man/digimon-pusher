@@ -15,6 +15,9 @@ CORS(app)
 def push_to_github():
     try:
         data = request.json
+
+        logging.info(f"요청 JSON 키 목록: {list(data.keys())}")
+        
         filename = data.get("filename")
         content_b64 = data.get("content_base64")
         repo_name = data.get("repo")
