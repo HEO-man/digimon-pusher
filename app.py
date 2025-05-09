@@ -34,9 +34,7 @@ def push_to_github():
             path = filename
 
         
-        logging.info(f"디지몬 폴더명: ${folder}")
-        logging.info(f"디지몬 폴더명: ${folder}")
-
+        logging.info(f"📂 전달받은 folder: ${folder}")
 
         logging.info(f"디지몬 폴더명: ${folder}")
         logging.info(f"📄 업로드 파일명: {filename}")
