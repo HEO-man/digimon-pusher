@@ -20,7 +20,9 @@ def push_to_github():
         repo_name = data.get("repo")
         folder = data.get("folder", "")  # optional
         token = os.environ.get("GITHUB_TOKEN")
-
+        logging.info("디지몬_01 받은 폴더 :: "+data.get("folder", ""))
+        logging.info("디지몬_02 받은 폴더 :: "+data.get("folderName", ""))
+        
         if not all([filename, content_b64, repo_name, token]):
             logging.error("❌ 필수 필드 누락됨")
             return jsonify({"error": "Missing required fields"}), 400
@@ -31,7 +33,12 @@ def push_to_github():
         else:
             path = filename
 
-        logging.info(f"디지몬 폴더명: ${folderName}")
+        
+        logging.info(f"디지몬 폴더명: ${folder}")
+        logging.info(f"디지몬 폴더명: ${folder}")
+
+
+        logging.info(f"디지몬 폴더명: ${folder}")
         logging.info(f"📄 업로드 파일명: {filename}")
         logging.info(f"📁 저장 경로: {path}")
         logging.info(f"📦 저장할 레포: {repo_name}")
