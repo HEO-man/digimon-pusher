@@ -31,6 +31,7 @@ def push_to_github():
         else:
             path = filename
 
+        logging.info(f"디지몬 폴더명: ${folderName}")
         logging.info(f"📄 업로드 파일명: {filename}")
         logging.info(f"📁 저장 경로: {path}")
         logging.info(f"📦 저장할 레포: {repo_name}")
