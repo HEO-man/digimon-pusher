@@ -1,51 +1,58 @@
 from flask import Flask, request, jsonify
-from github import Github
+from flask_cors import CORS
 import os
-import base64
+from github import Github
+from base64 import b64decode
 
 app = Flask(__name__)
+CORS(app)  # CORS 허용
 
 @app.route("/push", methods=["POST"])
 def push_to_github():
-    data = request.json
-    filename = data.get("filename")
-    content_b64 = data.get("content_base64")
-    repo_name = data.get("repo")
-    path = data.get("path", filename)
-    token = os.environ.get("GITHUB_TOKEN")
-
-    if not all([filename, content_b64, repo_name, path, token]):
-        return jsonify({"error": "Missing required data"}), 400
-
     try:
-        g = Github(token)
-        repo = g.get_user().get_repo(repo_name)
+        data = request.json
+        filename = data.get("filename")
+        content_b64 = data.get("content_base64")
+        repo_name = data.get("repo")
+        path = data.get("path", filename)
+        token = os.environ.get("GITHUB_TOKEN")
 
-        is_text_file = filename.endswith(".json") or filename.endswith(".txt")
-        content_bytes = base64.b64decode(content_b64)
-        content_str = content_bytes.decode("utf-8") if is_text_file else content_bytes
+        if not all([filename, content_b64, repo_name, token]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # GitHub 인증
+        g = Github(token)
+        user = g.get_user()
+        repo = user.get_repo(repo_name)
+
+        # Base64 디코드 → 텍스트로 복원
+        decoded_content = b64decode(content_b64).decode()
 
         try:
-            existing_file = repo.get_contents(path)
+            # 기존 파일 업데이트
+            contents = repo.get_contents(path)
             repo.update_file(
-                path,
-                f"Update {filename}",
-                content_str,
-                existing_file.sha,
+                path=contents.path,
+                message=f"Update {filename}",
+                content=decoded_content,
+                sha=contents.sha,
                 branch="main"
             )
-        except Exception as e:
+        except Exception:
+            # 신규 파일 생성
             repo.create_file(
-                path,
-                f"Add {filename}",
-                content_str,
+                path=path,
+                message=f"Add {filename}",
+                content=decoded_content,
                 branch="main"
             )
 
-        return jsonify({"status": "success"}), 200
+        return jsonify({"status": "success"})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
