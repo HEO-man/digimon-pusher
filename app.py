@@ -17,6 +17,8 @@ def push_to_github():
     if not all([filename, content_b64, repo_name, token]):
         return jsonify({"error": "Missing data"}), 400
 
+    decoded_content = base64.b64decode(content_b64).decode('utf-8')
+
     g = Github(token)
     user = g.get_user()
     repo = user.get_repo(repo_name)
@@ -26,7 +28,7 @@ def push_to_github():
         repo.update_file(
             contents.path,
             f"Update {filename}",
-            content_b64,
+            decoded_content,
             contents.sha,
             branch="main"
         )
@@ -34,11 +36,12 @@ def push_to_github():
         repo.create_file(
             path,
             f"Add {filename}",
-            content_b64,
+            decoded_content,
             branch="main"
         )
 
     return jsonify({"status": "success"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))  # Render가 지정한 포트를 사용
+    app.run(host="0.0.0.0", port=port)
