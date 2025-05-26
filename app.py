@@ -66,7 +66,8 @@ def push_to_github():
                 message=f"Update {filename}",
                 content=content_to_commit,
                 sha=existing.sha,
-                branch="main"
+                branch="main",
+                encoding="base64" if not is_text else None
             )
             logging.info(f"✅ 업데이트 완료: {path}")
         except Exception as e:
@@ -75,7 +76,8 @@ def push_to_github():
                 path=path,
                 message=f"Add {filename}",
                 content=content_to_commit,
-                branch="main"
+                branch="main",
+                encoding="base64" if not is_text else None
             )
             logging.info(f"🆕 새 파일 생성: {path}")
 
