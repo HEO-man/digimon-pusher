@@ -58,7 +58,7 @@ def push_to_github():
         else:
             content_to_commit = content_b64  # 이미지나 바이너리는 base64 그대로
 
-        # 파일 업데이트 또는 생성
+        # 파일 업데이트 또는 생성 
         try:
             existing = repo.get_contents(path)
             repo.update_file(
