@@ -1,3 +1,16 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import os
+from github import Github
+import base64
+import logging
+
+# 로그 설정
+logging.basicConfig(level=logging.INFO)
+
+app = Flask(__name__)
+CORS(app)
+
 @app.route("/push", methods=["POST"])
 def push_to_github():
     try:
@@ -36,13 +49,12 @@ def push_to_github():
         g = Github(token)
         repo = g.get_user().get_repo(repo_name)
 
-        # 텍스트(json/txt) 파일은 디코딩 → 문자열로 커밋
+        # content 처리
         if filename.endswith(".json") or filename.endswith(".txt"):
             decoded_bytes = base64.b64decode(content_b64)
-            content_to_commit = decoded_bytes.decode("utf-8")
+            content_to_commit = decoded_bytes.decode("utf-8")  # 문자열로 커밋
         else:
-            # 바이너리는 base64 인코딩 문자열 그대로 사용 (Github API 규격)
-            content_to_commit = content_b64
+            content_to_commit = base64.b64decode(content_b64)  # 바이너리는 그대로 bytes
 
         # 업로드 또는 업데이트
         try:
@@ -50,7 +62,7 @@ def push_to_github():
             repo.update_file(
                 path=existing.path,
                 message=f"Update {filename}",
-                content=content_to_commit,
+                content=content_to_commit if isinstance(content_to_commit, str) else base64.b64encode(content_to_commit).decode("utf-8"),
                 sha=existing.sha,
                 branch="main"
             )
@@ -59,7 +71,7 @@ def push_to_github():
             repo.create_file(
                 path=path,
                 message=f"Add {filename}",
-                content=content_to_commit,
+                content=content_to_commit if isinstance(content_to_commit, str) else base64.b64encode(content_to_commit).decode("utf-8"),
                 branch="main"
             )
             logging.info(f"🆕 새 파일 생성: {path}")
@@ -69,3 +81,6 @@ def push_to_github():
     except Exception as e:
         logging.exception("🔥 서버 오류 발생")
         return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
