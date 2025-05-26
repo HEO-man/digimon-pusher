@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-from github import Github
+from github import Github, GithubException
 import base64
 import logging
 
@@ -49,32 +49,36 @@ def push_to_github():
         g = Github(token)
         repo = g.get_user().get_repo(repo_name)
 
-        # content 처리
-        if filename.endswith(".json") or filename.endswith(".txt"):
-            decoded_bytes = base64.b64decode(content_b64)
-            content_to_commit = decoded_bytes.decode("utf-8")  # 문자열로 커밋
-        else:
-            content_to_commit = base64.b64decode(content_b64)  # 바이너리는 그대로 bytes
+        # 파일 콘텐츠 준비
+        is_text = filename.endswith(".json") or filename.endswith(".txt")
+        decoded_bytes = base64.b64decode(content_b64)
+        content_to_commit = decoded_bytes.decode("utf-8") if is_text else content_b64
 
-        # 업로드 또는 업데이트
         try:
+            # 기존 파일의 최신 SHA 확보
             existing = repo.get_contents(path)
+            latest_sha = existing.sha
             repo.update_file(
-                path=existing.path,
+                path=path,
                 message=f"Update {filename}",
-                content=content_to_commit if isinstance(content_to_commit, str) else base64.b64encode(content_to_commit).decode("utf-8"),
-                sha=existing.sha,
+                content=content_to_commit,
+                sha=latest_sha,
                 branch="main"
             )
             logging.info(f"✅ 업데이트 완료: {path}")
-        except Exception:
-            repo.create_file(
-                path=path,
-                message=f"Add {filename}",
-                content=content_to_commit if isinstance(content_to_commit, str) else base64.b64encode(content_to_commit).decode("utf-8"),
-                branch="main"
-            )
-            logging.info(f"🆕 새 파일 생성: {path}")
+        except GithubException as e:
+            if e.status == 404:
+                # 파일이 없을 때만 생성
+                repo.create_file(
+                    path=path,
+                    message=f"Add {filename}",
+                    content=content_to_commit,
+                    branch="main"
+                )
+                logging.info(f"🆕 새 파일 생성: {path}")
+            else:
+                logging.error(f"❌ GitHubException: {e}")
+                return jsonify({"error": str(e)}), 500
 
         return jsonify({"status": "success"})
 
